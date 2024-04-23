@@ -1,0 +1,78 @@
+<html>
+    <head>
+        <title>INFO 4310 - Final Project</title>
+
+        <!-- Loading scripts -->
+        <script src="https://d3js.org/d3.v5.min.js"></script>
+  
+
+        <!-- Styling -->
+        <style>
+
+            body {
+                background-color: #2C2D51;
+                color: white;
+                font-family: Verdana, Geneva, Tahoma, sans-serif;
+            }
+
+         
+
+        </style>
+    </head>
+
+    <body>
+
+        <div class = "top">
+            <div class="header">
+                <h1 class="page-title"> Olympics Match-Up </h1>
+                <p>by Sydney Wan (ssw73)</p>
+            </div>
+        </div>
+
+        <div id="container">
+            <svg id="map"  height="600" width="900" style = "border:1px solid black;"></svg>
+        </div>
+        
+        
+        <script>
+            const requestData = async function() {
+                let countryData = await d3.json("countries.geo.json");
+                const olympicData = await d3.csv("athlete_events.csv", d3.autoType);
+
+                console.log(countryData);
+                console.log(olympicData);
+
+                const svg = d3.select("#map");
+                const width = svg.attr("width");
+                const height = svg.attr("height");
+                const margin = { top: 20, right: 20, bottom: 20, left:20};
+                const mapWidth = width - margin.left - margin.right;
+                const mapHeight = height - margin.top - margin.bottom;
+                const map = svg.append("g")
+                                .attr("transform","translate("+margin.left+","+margin.top+")");
+
+                var projection = d3.geoMercator().fitSize([mapWidth, mapHeight + 30], countryData);
+                var path = d3.geoPath().projection(projection);
+
+                map.selectAll("path.country").data(countryData.features)
+                .join("path")
+                .attr("class", "country")
+                .attr("d", path)
+                .attr("fill", "#333334")
+                .attr("stroke", "white");
+
+              
+
+
+            }
+
+            requestData();
+            
+
+            
+
+            
+        </script>
+
+    </body>
+</html>
