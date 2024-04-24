@@ -15,6 +15,28 @@
                 font-family: Verdana, Geneva, Tahoma, sans-serif;
             }
 
+            .tooltip {
+                pointer-events: none;
+            }
+
+            #country-container {
+                display: flex;
+                flex-direction: row;
+                align-items: flex-start;
+                justify-content: center;
+            }
+            #countries-selected {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+            }
+
+            #area-chart {
+                margin-left: 200px;
+                margin-top: 100px;
+            }
+
          
 
         </style>
@@ -30,19 +52,39 @@
         </div>
 
         <div id="container">
-            <svg id="map"  height="600" width="900" style = "border:1px solid black;"></svg>
+            <h3>Select your countries.</h3>
+            <div id="country-container">
+                <svg id="map" height="600" width="900" style = "border:1px solid black;"></svg>    
+                <div id = "countries-selected">
+                    <svg id="country-select"  height="300" width="500" style = "border:1px solid black;"></svg>
+                    <div id="country-select-buttons">
+                        <button id="go">Go!</button>
+                        <button id="reset" style="width:50">Reset</button>
+                    </div>                
+                </div>
+            </div>
+            <div id = "area-chart">
+                <svg id="area-chart-plot" height="600" width="900" style = "border:1px solid black;"></svg>
+
+
+            </div>
+            
+
         </div>
         
         
         <script>
             const requestData = async function() {
+                //load data
                 let countryData = await d3.json("countries.geo.json");
                 const olympicData = await d3.csv("athlete_events.csv", d3.autoType);
 
                 console.log(countryData);
                 console.log(olympicData);
 
+                //define basic variables
                 const svg = d3.select("#map");
+                const svg_countries = d3.select("#country-select");
                 const width = svg.attr("width");
                 const height = svg.attr("height");
                 const margin = { top: 20, right: 20, bottom: 20, left:20};
@@ -51,18 +93,284 @@
                 const map = svg.append("g")
                                 .attr("transform","translate("+margin.left+","+margin.top+")");
 
+                const svg_area = d3.select("#area-chart-plot");
+                const area_width = svg_area.attr("width");
+                const area_height = svg_area.attr("height");
+
+                //create projections
                 var projection = d3.geoMercator().fitSize([mapWidth, mapHeight + 30], countryData);
                 var path = d3.geoPath().projection(projection);
+
+                //get counts of athletes per country
+                var athleteCounts = [];
+                olympicData.forEach( d => {
+                    if(athleteCounts.some(e => e.country === d.Team)) {
+                        athleteCounts.forEach( obj => {
+                            if (obj.country === d.Team) {
+                                obj.count += 1;
+                            }
+                        })
+                    }
+                    else {
+                        athleteCounts.push({
+                        "country": d.Team,
+                        "count": 1
+                    })
+
+                    }
+                    
+                })
+                
+                //define map color scale and create map
+                let valueExtent = d3.extent(athleteCounts, d => d.count);
+                const colorScale = d3.scaleSequential(d3.interpolateViridis).domain(valueExtent);
 
                 map.selectAll("path.country").data(countryData.features)
                 .join("path")
                 .attr("class", "country")
                 .attr("d", path)
-                .attr("fill", "#333334")
-                .attr("stroke", "white");
+                .attr("fill", function (d) { 
+                    var result = athleteCounts.filter(obj => {
+                        return d.properties.name === obj.country;
+                    });
+                    if (result.length === 0) { return "none";}
+                    else { return colorScale(result[0].count); }
+                })
+                .attr("stroke", "white")
+                .on('mouseover', mouseEntersState)
+                .on('mouseout', mouseLeavesState)
+                .on("click", mouseClickEvent);
 
-              
 
+
+                //define zoom functionality for map
+                var zoom = d3.zoom()
+                  .scaleExtent([1,10])
+                  .translateExtent([[-50,-50],[mapWidth+50,mapHeight+50]])
+                  .on("zoom", zoomMap);
+                  
+                svg.call(zoom);
+
+                // Setting up tooltip to display map country and counts
+                const tooltipWidth_CONST = 120;
+                const tooltipHeight_CONST = 40;
+                const txt_CONST = 14;
+                let tooltipWidth = tooltipWidth_CONST;
+                let tooltipHeight = tooltipHeight_CONST;
+
+                let tooltip = map.append("g")
+                           .attr("class", "tooltip")
+                           .attr("visibility", "hidden"); 
+          
+                tooltip.append("rect")
+                        .attr("fill", "white")
+                        .attr("opacity", 0.9)
+                        .attr("x", -tooltipWidth / 2.0)
+                        .attr("y", 0)
+                        .attr("width", tooltipWidth)
+                        .attr("height", tooltipHeight);
+                
+                let txt = tooltip.append("text")
+                                .attr("fill", "#7a0177")
+                                .attr("text-anchor", "middle")
+                                .attr("alignment-baseline", "hanging")
+                                .attr("x", 0)
+                                .attr("y", 2)
+                                .style("font-weight", 600)
+                                .style("font-size", txt_CONST)
+                                .style("", "white");
+                
+                let txt2 = tooltip.append("text")
+                                    .attr("fill", "#7a0177")
+                                    .attr("text-anchor", "middle")
+                                    .attr("alignment-baseline", "hanging")
+                                    .attr("x", 0)
+                                    .attr("y", 22)
+                                    .style("font-size", txt_CONST);
+
+
+                //defining country tooltip to display selected countries
+                let country_tooltip = svg_countries.append("g")
+                                                    .attr("class", "countries")
+                                                    .attr("transform","translate("+margin.left+","+margin.top+")");
+                country_tooltip.append("text")
+                                .attr("fill", "white")
+                                .style("text-anchor", "middle")
+                                .attr("alignment-baseline", "hanging")
+                                .attr("x", 250)
+                                .attr("y", 100)
+                                .attr("font-weight", 800)
+                                .attr("font-size", 30)
+                                .text('vs.');
+
+                let country1 = country_tooltip.append("text").text("");
+                let country2 = country_tooltip.append("text").text("")
+                let countriesSelected = new Set();
+                let warning = null;
+                d3.select("#reset").on("click", resetCountries);
+                d3.select("#go").on("click", populateCharts);
+
+                function resetCountries() {
+                    
+                    countriesSelected = new Set();
+                    if (warning !== null) {
+                        warning.html("");
+                        warning = null;
+
+                    }
+                    country1.html("");
+                    country2.html("");
+                    country1 = country_tooltip.append("text")
+                                            .attr("fill", "gray")
+                                            .style("text-anchor", "middle")
+                                            .attr("alignment-baseline", "hanging")
+                                            .attr("x", 250)
+                                            .attr("y", 50)
+                                            .attr("font-weight", 800)
+                                            .attr("font-size", 40)
+                                            .text('[Select Country]');
+                    country2 = country_tooltip.append("text")
+                                                .attr("fill", "gray")
+                                                .style("text-anchor", "middle")
+                                                .attr("alignment-baseline", "hanging")
+                                                .attr("x", 250)
+                                                .attr("y", 150)
+                                                .attr("font-weight", 800)
+                                                .attr("font-size", 40)
+                                                .text('[Select Country]');
+                }
+
+                resetCountries();
+
+                //https://gist.github.com/interwebjill/8122dd08da9facf8c6ef6676be7da03f
+                function populateCharts() {
+                    if (countriesSelected.size < 2) { return; } //if not all countries are selected
+
+                    document.getElementById("area-chart-plot").scrollIntoView({behavior: "smooth"});
+
+                    let filteredData = olympicData.filter(obj => {
+                        return countriesSelected.has(obj.Team);
+                    });
+
+                    let areaChart = svg_area.append("g")
+                                            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                    var x_extent = d3.extent(filteredData, function(d) { return d.Year; })
+                    console.log(x_extent);
+                    var x = d3.scaleLinear()
+                            .domain(x_extent)
+                            .range([ 0, area_width - 20 ]);
+                    let bottomAxis = d3.axisBottom(x).tickFormat(d3.format("d"));;
+
+                    areaChart.append("g")
+                            .attr("transform", "translate(10, 550)")
+                            .call(bottomAxis)
+                            .selectAll("text")
+                            .attr("fill", "#e3e3e3");
+
+                    
+
+
+
+
+                }
+                
+
+
+                function mouseEntersState() {
+                    tooltip.style("visibility", "visible")
+                    
+                    let country = d3.select(this);
+                    let countryName = country.datum().properties.name;
+                    let countryData = athleteCounts.filter(obj => {
+                        return countryName === obj.country;
+                    });
+                    let countryCount = 0;
+                    if (countryData.length != 0) { 
+                        countryCount = countryData[0].count;}
+
+                    txt.text(countryName);
+                    txt2.text(countryCount);
+
+                    let bounds = path.bounds(country.datum());
+                    let xPos = (bounds[0][0] + bounds[1][0]) / 2.0;
+                    let yPos = bounds[1][1] - 15;
+                    
+                    tooltip.attr("transform", `translate(${xPos},${yPos})`);
+
+                }
+
+                function mouseLeavesState() {
+                    tooltip.style("visibility", "hidden");
+
+                    
+                }
+
+                function mouseClickEvent() {
+                    let country = d3.select(this);
+                    let countryName = country.datum().properties.name;
+                    let countryData = athleteCounts.filter(obj => {
+                        return countryName === obj.country;
+                    });
+                    
+
+                    //error handling: either country has no athletes or user selects already selected country
+                    if (countryData[0].count === 0) { return; }
+                    if (countriesSelected.has(countryName)) { return; }
+
+                    //accounting for if a user selects new countries but both slots are full
+                    if (countriesSelected.size < 2) {
+                        countriesSelected.add(countryName);
+                    }
+
+                    //change country names
+                    if (countriesSelected.size === 1) {
+                        country1.html("");
+                        country1 = country_tooltip.append("text")
+                                              .attr("fill", "white")
+                                              .style("text-anchor", "middle")
+                                              .attr("alignment-baseline", "hanging")
+                                              .attr("x", 250)
+                                              .attr("y", 50)
+                                              .attr("font-weight", 800)
+                                              .attr("font-size", 40)
+                                              .text(countryName);
+
+                    }
+                    else if (countriesSelected.size === 2) {
+                        country2.html("");
+                        country2 = country_tooltip.append("text")
+                                              .attr("fill", "white")
+                                              .style("text-anchor", "middle")
+                                              .attr("alignment-baseline", "hanging")
+                                                .attr("x", 250)
+                                                .attr("y", 150)
+                                                .attr("font-weight", 800)
+                                                .attr("font-size", 40)
+                                              .text(countryName);
+
+                    }
+                    else if (warning === null){
+                        warning = country_tooltip.append("text")
+                                        .attr("fill", "red")
+                                        .attr("text-anchor", "middle")
+                                        .attr("x", 200)
+                                        .attr("y", 250)
+                                        .attr("font-weight", 800)
+                                        .text("Press Reset to change countries");
+
+                    }
+                }
+
+                function zoomMap() {    
+                    map.attr("transform", d3.event.transform);
+                    tooltipHeight = tooltipHeight / d3.event.transform.k;
+                    tooltipWidth = tooltipWidth / d3.event.transform.k;
+                    tooltip.selectAll("rect")
+                            .attr("height", tooltipHeight_CONST / d3.event.transform.k  )
+                            .attr("width", tooltipWidth_CONST / d3.event.transform.k  );
+                    tooltip.selectAll("text").style("font-size", txt_CONST / d3.event.transform.k );
+                }
 
             }
 
