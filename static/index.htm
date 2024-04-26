@@ -54,9 +54,9 @@
         <div id="container">
             <h3>Select your countries.</h3>
             <div id="country-container">
-                <svg id="map" height="600" width="900" style = "border:1px solid black;"></svg>    
+                <svg id="map" height="600" width="900"></svg>    
                 <div id = "countries-selected">
-                    <svg id="country-select"  height="300" width="500" style = "border:1px solid black;"></svg>
+                    <svg id="country-select"  height="250" width="500"></svg>
                     <div id="country-select-buttons">
                         <button id="go">Go!</button>
                         <button id="reset" style="width:50">Reset</button>
@@ -64,7 +64,9 @@
                 </div>
             </div>
             <div id = "area-chart">
-                <svg id="area-chart-plot" height="600" width="900" style = "border:1px solid black;"></svg>
+                <h3>Number of medals earned by year</h3>
+                <svg id="area-chart-plot" height="600" width="900"></svg>
+                <svg></svg>
 
 
             </div>
@@ -94,8 +96,10 @@
                                 .attr("transform","translate("+margin.left+","+margin.top+")");
 
                 const svg_area = d3.select("#area-chart-plot");
-                const area_width = svg_area.attr("width");
-                const area_height = svg_area.attr("height");
+                const chartMargin = { top: 20, right: 20, bottom: 20, left:30};
+                const area_width = svg_area.attr("width") - chartMargin.left - chartMargin.right; 
+                const area_height = svg_area.attr("height") - chartMargin.top - chartMargin.bottom;
+
 
                 //create projections
                 var projection = d3.geoMercator().fitSize([mapWidth, mapHeight + 30], countryData);
@@ -238,41 +242,112 @@
                                                 .attr("font-weight", 800)
                                                 .attr("font-size", 40)
                                                 .text('[Select Country]');
+
+                    //reset area chart
+                    svg_area.html("");
                 }
 
                 resetCountries();
 
-                //https://gist.github.com/interwebjill/8122dd08da9facf8c6ef6676be7da03f
                 function populateCharts() {
                     if (countriesSelected.size < 2) { return; } //if not all countries are selected
 
                     document.getElementById("area-chart-plot").scrollIntoView({behavior: "smooth"});
 
+
+                    //filtering data to the selected countries
                     let filteredData = olympicData.filter(obj => {
                         return countriesSelected.has(obj.Team);
                     });
 
-                    let areaChart = svg_area.append("g")
-                                            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+                    //creating data for each country's medal count by year
+                    var medalData = [];
+                    filteredData.forEach( d => {
+                        if(medalData.some(e => e.country === d.Team && e.year === d.Year)) {
+                            medalData.forEach( obj => {
+                                if (obj.country === d.Team && obj.year === d.Year) {
+                                    obj.count += 1;
+                                }
+                            })
+                        }
+                        else {
+                            medalData.push({
+                            "country": d.Team,
+                            "year": d.Year,
+                            "count": 1
+                        })
 
-                    var x_extent = d3.extent(filteredData, function(d) { return d.Year; })
-                    console.log(x_extent);
-                    var x = d3.scaleLinear()
+                        }
+                    })
+
+
+                    //building area chart and axes
+                    let areaChart = svg_area.append("g")
+                                            .attr("transform", "translate(" + chartMargin.left + "," + chartMargin.top + ")");
+                    const yAxisArea = svg_area.append("g").attr("transform",`translate(${chartMargin.left-2},${chartMargin.top})`);
+                    const xAxisArea = svg_area.append("g").attr("transform",`translate(${chartMargin.left},${area_height+2+chartMargin.top})`);
+
+
+                    //x-axis
+                    var x_extent = d3.extent(medalData, function(d) { return d.year; })
+                    var xScale = d3.scaleLinear()
                             .domain(x_extent)
                             .range([ 0, area_width - 20 ]);
-                    let bottomAxis = d3.axisBottom(x).tickFormat(d3.format("d"));;
+                    let bottomAxis = d3.axisBottom(xScale).tickFormat(d3.format("d"));;
 
-                    areaChart.append("g")
-                            .attr("transform", "translate(10, 550)")
+                    xAxisArea.append("g")
                             .call(bottomAxis)
                             .selectAll("text")
                             .attr("fill", "#e3e3e3");
 
+                    //y-axis
+                    const y_extent = d3.extent(medalData, d => d.count);
+                    const yScale = d3.scaleLinear().domain(y_extent).range([area_height-10, 10]);
+                    let yAxis = d3.axisLeft(yScale); 
+                    yAxisArea.append("g").attr("class", "y axis").call(yAxis).selectAll("text").attr("fill", "#e3e3e3");
+
+
+                    //creating actual area chart
+                    var selectedCountriesSorted = Array.from(countriesSelected);
+
+                    //if the second country selected has more medals, the order in the array is swapped so area chart prints nicer
+                    if (athleteCounts.find(item => item.country === selectedCountriesSorted[0]).count < athleteCounts.find(item => item.country === selectedCountriesSorted[1]).count) {
+                        console.log("first country has less medals");
+                        selectedCountriesSorted = selectedCountriesSorted.reverse();
+                    }
+
+                    //plot country 1
+                    const country1_data = medalData.filter((d) => d["country"] == Array.from(selectedCountriesSorted)[0]).sort((a, b) => a.year - b.year);
+                    console.log(country1_data);
+                    areaChart.append("path")
+                            .datum(country1_data)
+                            .attr("fill", "#cce5df")
+                            .attr("stroke", "#69b3a2")
+                            .attr("stroke-width", 1.5)
+                            .attr("opacity", 1)
+                            .attr("d", d3.area()
+                                .curve(d3.curveMonotoneX)
+                                .x(function(d) { return xScale(d.year) })
+                                .y0(yScale(0))
+                                .y1(function(d) { return yScale(d.count) })
+                            )
                     
-
-
-
-
+                    //plot country 2
+                    const country2_data = medalData.filter((d) => d["country"] == Array.from(selectedCountriesSorted)[1]).sort((a, b) => a.year - b.year);
+                    console.log(country2_data);
+                    areaChart.append("path")
+                            .datum(country2_data)
+                            .attr("fill", "#DEB5EA")
+                            .attr("stroke", "#C480D8")
+                            .attr("stroke-width", 1.5)
+                            .attr("opacity", 0.7)
+                            .attr("d", d3.area()
+                                .curve(d3.curveMonotoneX)
+                                .x(function(d) { return xScale(d.year) })
+                                .y0(yScale(0))
+                                .y1(function(d) { return yScale(d.count) })
+                            )
+            
                 }
                 
 
