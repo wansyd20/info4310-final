@@ -55,6 +55,13 @@
                 padding: 4em;
             }
 
+            #bubble-season, #bubble-sex {
+                display:flex;
+                flex-direction: row;
+                justify-content: center;
+                padding-right: 20px;
+            }
+
             button, select {
                 background-color: white;
                 color: #2C2D51;
@@ -74,6 +81,33 @@
                 background-color: white;
                 color: #2C2D51;
             }
+
+            #bubbles {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .bubblef {
+                margin-right: -2px;
+            }
+
+
+            .previous {
+                background-color: #f1f1f1;
+                color: black;
+                font-size: 16px;
+                padding-left: 10px;
+                width: 15px;
+                height: 30px;
+                line-height: 0px;
+            }
+
+            .filters, #bubble-container {
+                display: flex;
+                flex-direction: row;
+                justify-content: center;
+            }
+          
 
 
         </style>
@@ -111,7 +145,7 @@
                 <p>[How to use] Click and drag the cursor on the chart to narrow the time range. 
                     Double click the chart to revert back to the original version.
                 </p>
-                <div id = "filters" >
+                <div class = "filters" >
                     <select name="Season" id="season">
                         <option value="season-all">Season: All</option>
                         <option value="Summer">Summer</option>
@@ -132,8 +166,26 @@
                 </div>
                 <svg id="area-chart-plot" height="600" width="1000"></svg>
             </div>
-            <div id="bubbles">
-                <svg id="bubble-chart" height="600" width="1300" style="border:white 1px solid"></svg>
+            <div id="bubbles" style="visibility: hidden;">
+                <h3 style="text-align:center">Medal Breakdown by Athlete</h3>
+                <div class="filters" >
+                    <div id="bubble-season">
+                        <button class="bubblef" id="summer" style="background-color: lightgray;
+                        stroke:1px white">Summer</button>
+                        <button class="bubblef" id="winter">Winter</button>
+                    </div>
+                    <div id="bubble-sex">
+                        <button class="bubblef" id="male" style="background-color: lightgray;
+                        stroke:1px white">Male</button>
+                        <button class="bubblef" id="female">Female</button>
+
+                    </div>      
+                </div>
+                <div id="bubble-container">
+                    <button class="previous" style="visibility: hidden;">&#9664;</button>
+                    <svg id="bubble-chart" height="600" width="1300"></svg>
+                </div>
+                
             </div>
             
         </div>
@@ -148,7 +200,7 @@
                 //define basic variables
                 const svg = d3.select("#map");
                 const svg_countries = d3.select("#country-select");
-                const svg_bubbles = d3.select("#bubble-chart")
+                
                 const width = svg.attr("width");
                 const height = svg.attr("height");
                 const margin = { top: 20, right: 20, bottom: 20, left:20};
@@ -159,13 +211,18 @@
 
                 //defining variables for area chart
                 const svg_area = d3.select("#area-chart-plot");
+                const areaLegend= d3.select("#area-legend");
                 const chartMargin = { top: 20, right: 20, bottom: 20, left:30};
                 const area_width = svg_area.attr("width") - chartMargin.left - chartMargin.right; 
                 const area_height = svg_area.attr("height") - chartMargin.top - chartMargin.bottom;
                 let season_filter = "season-all";
                 let sex_filter = "sex-all";
-                let medal_filter = "medal-all";        
-
+                let medal_filter = "medal-all";     
+                
+                //variables for bubble chart
+                const svg_bubbles = d3.select("#bubble-chart");
+                var bubble_season = "Summer";
+                var bubble_sex = "M";
 
                 //create projections
                 var projection = d3.geoMercator().fitSize([mapWidth, mapHeight + 30], countryData);
@@ -313,7 +370,7 @@
                 d3.select("#reset").on("click", resetCountries);
                 d3.select("#go").on("click", function(d){
                                     setChartParameters();
-                                    prepBubbleChart()});
+                                    prepBubbleChart(bubble_season, bubble_sex)});
 
                 function resetCountries() {
                     
@@ -357,7 +414,6 @@
                         return countriesSelected.has(obj.Team);
                     });
                     let filteredData = [...teamData];
-                    console.log("pre-filtered", filteredData);
 
 
                     //handle filter dropdowns
@@ -407,15 +463,22 @@
 
                     populateCharts(medalData);
                 }
+                
 
-                function prepBubbleChart() {
-                    d3.selectAll("#bubble-chart").style("visibility", "visible");
+
+                function prepBubbleChart(season, sex) {
+                    svg_bubbles.html("");
+                    d3.selectAll("#bubbles").style("visibility", "visible");
+                    d3.selectAll("button.bubblef").on("click", toggleBubbleFilter);
+
+                    if (bubble_sex !== sex) { bubble_sex = sex;}
+                    if (bubble_season !== season) { bubble_sex = season;}
+
                     const teamData = olympicData.filter(obj => {
-                        return countriesSelected.has(obj.Team) && obj.Medal !== "NA" && obj.Season == "Summer";
+                        return countriesSelected.has(obj.Team) && obj.Medal !== "NA" && 
+                        obj.Season == bubble_season && obj.Sex=== bubble_sex;
                     });
                     let filteredData = [...teamData];
-                    console.log("teamData", teamData);
-
    
                     const sportCounts = [];
                     filteredData.forEach( d => {
@@ -437,7 +500,6 @@
                     })
                     let medalExtent = d3.extent(sportCounts, d => d.medals);
                     const bubbleColorScale = d3.scaleSequential(d3.interpolateViridis).domain(medalExtent);
-                    console.log(sportCounts);
                     createBubbleChart(svg_bubbles, sportCounts, "sport", "medals", bubbleColorScale);
                     
                             
@@ -445,9 +507,11 @@
                 }
                 
                 function prepSecondBubbleChart(sport) {
+                    svg_bubbles.html("");
 
                     const teamData = olympicData.filter(obj => {
-                        return countriesSelected.has(obj.Team) && obj.Medal !== "NA" && obj.Season == "Summer" && obj.Sport == sport;
+                        return countriesSelected.has(obj.Team) && obj.Medal !== "NA" && 
+                        obj.Sport == sport && obj.Season == bubble_season && obj.Sex=== bubble_sex;;
                     });
                     let filteredData = [...teamData];
 
@@ -472,16 +536,57 @@
                             athleteCounts.push({
                             "name": d.Name,
                             [`${medal}`]: 1,
-                            total: 1
+                            total: 1,
+                            team: d.Team
                         })
 
                         }
                     });
-                    console.log(athleteCounts);
+                    let medalExtent = d3.extent(athleteCounts, d => d.total);
+                    const bubbleColorScale = d3.scaleSequential(d3.interpolateViridis).domain(medalExtent);
+                    createBubbleChart(svg_bubbles, athleteCounts, "name", "total", bubbleColorScale);
+                }
+
+                function toggleBubbleFilter() {
+                    const selected = d3.select(this);
+
+                    selected.style("background-color", "lightgray");                    
+
+                    if (selected.attr("id") === "female") {
+                        d3.selectAll("#male")
+                            .style("background-color", "white")
+                            .style("color", "#2C2D51");
+                        bubble_sex = "F";
+
+                    }
+                    else if (selected.attr("id") === "male") {
+                        d3.selectAll("#female")
+                            .style("background-color", "white")
+                            .style("color", "#2C2D51");
+                        bubble_sex = "M";
+                        
+                    }
+                    else if (selected.attr("id") === "summer") {
+                        d3.selectAll("#winter")
+                            .style("background-color", "white")
+                            .style("color", "#2C2D51");
+                        bubble_season = "Summer";
+                        
+                    }
+                    else { //automatically winter
+                        d3.selectAll("#summer")
+                            .style("background-color", "white")
+                            .style("color", "#2C2D51");
+                        bubble_season = "Winter";
+
+                    }
+                    prepBubbleChart(bubble_season, bubble_sex);
+
                 }
 
                 function populateCharts(medalData) {
                     svg_area.html("");
+                    areaLegend.html("");
 
                     if (countriesSelected.size < 2) { return; } //if not all countries are selected
 
@@ -532,7 +637,6 @@
                     const areaColors = ["#cce5df", "#DEB5EA"];
 
                     //legend
-                    const areaLegend= d3.select("#area-legend");
 
                     areaLegend.selectAll("circles")
                                 .data(selectedCountriesSorted)
@@ -642,13 +746,20 @@
                 }
 
                 function createBubbleChart(svg, data, name, value, colorScale) {
+                    svg_bubbles.html("");
+                    if (name==="name") {
+                        d3.selectAll(".previous").style("visibility", "visible")
+                          .on("click", d => prepBubbleChart(bubble_season, bubble_sex));
+                    }
+                    else {
+                        d3.selectAll(".previous").style("visibility", "hidden");
+                    }
+
                     const width = svg_bubbles.attr("width");
                     const height = svg_bubbles.attr("height");
                     const margin = { top: 5, bottom: 0, right: 5, left: 5 };
                     const bubbleWidth = width - margin.left - margin.right;
                     const bubbleHeight = height - margin.top - margin.bottom;
-
-                    console.log(colorScale);
 
                     const pack = d3.pack()
                                 .size([bubbleWidth, bubbleHeight])
@@ -689,9 +800,17 @@
                     bubbles.append("circle")
                             .attr("class", name)
                             .attr("r", d => d.r)
-                            .attr("fill", d => colorScale(d.data[value]))
-                            // .on('mouseover', mouseEntersState)
-                            // .on('mouseout', mouseLeavesState)
+                            .attr("fill", d => {
+                                if (name==="sport") return colorScale(d.data[value]);
+                                else if (d.data.team === Array.from(countriesSelected)[0]){
+                                    return "#cce5df";
+                                }
+                                else {
+                                    return "#DEB5EA";
+                                }
+                            })
+                            .on('mouseover', bubbleEntersState)
+                            .on('mouseout', bubbleLeavesState)
                             .on("click", bubbleClickEvent);
 
                     bubbles.append("text")
@@ -699,10 +818,6 @@
                             .style("text-anchor", "middle")
                             .style("fill", "white")
                             .style("font-weight", 600)
-                            // .style("font-size", function(d) {
-                            //     if (d.r < 40) { return 8; } //could probably dynamically program this to calculate font size
-                            //     return 15;                  
-                            // })
                             .style("font-size", d => d.r / 4)
                             .text(d => {
                                 if (d.data[name]==="Athletics") { return "Track/Field";}
@@ -710,22 +825,11 @@
                             })
                             .attr("pointer-events", "none")
                             .call(wrap, 20); //how do i call this on only the small bubbles?
-
-                    // bubbles.append("text")
-                    //         .attr("dy", "1.2em")
-                    //         .style("text-anchor", "middle")
-                    //         .style("font-size", function(d) {
-                    //             if (d.r < 30) { return 8; }
-                    //             return 15;
-                    //         })
-                    //         .text(d => d.data[value]);
-
     
             }
 
             function bubbleClickEvent() {
-                console.log(d3.select(this));
-                
+               
                 const selectedBubble = d3.select(this);
                 if (selectedBubble.attr("class") === "sport") {
                     const selectedSport = selectedBubble._groups[0][0].__data__.data.sport;
@@ -733,6 +837,16 @@
                     prepSecondBubbleChart(selectedSport);
 
                 }
+            }
+
+            function bubbleEntersState() {
+                var bubble = d3.select(this);
+                bubble.attr("opacity", 0.6).style("cursor", "pointer");
+            }
+
+            function bubbleLeavesState() {
+                var bubble = d3.select(this);
+                bubble.attr("opacity", 1).style("cursor", "default");
             }
 
             //function courtesy of Mike Bostock: https://gist.github.com/mbostock/7555321
@@ -743,7 +857,7 @@
                         word,
                         line = [],
                         lineNumber = 0,
-                        lineHeight = 0.7, // ems
+                        lineHeight = 1.1, // ems
                         y = text.attr("y"),
                         dy = parseFloat(text.attr("dy")),
                         tspan = text.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em");
@@ -767,21 +881,16 @@
                 const sexes = ['sex-all', 'M', 'F'];
                 const medals = ['medal-all', 'Gold', 'Silver', 'Bronze'];
 
-                console.log("selectedValue", selectedValue);
-
                 if (seasons.includes(selectedValue)) {
                     season_filter = selectedValue;
                 }
                 if (season_filter !== "season-all") { 
-                    console.log("season has changed");
                     data = data.filter(obj => {
                         return obj.Season === season_filter;
                     });
-                    console.log("data after season change", data);
                 }
 
                 if (sexes.includes(selectedValue)) {
-                    console.log("sex has changed")
                     sex_filter = selectedValue;
 
                 }
@@ -789,8 +898,6 @@
                     data = data.filter(obj => {
                         return obj.Sex === sex_filter;
                     });
-
-                    console.log("data after sex change", data);
 
                 }
                 if (medals.includes(selectedValue)) {
@@ -800,10 +907,8 @@
                     data = data.filter(obj => {
                         return obj.Medal === medal_filter;
                     });
-                    console.log("data after medal change", data);
 
                 }
-                console.log("filterData", data);
                 return data; 
 
             }
