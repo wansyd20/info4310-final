@@ -4,6 +4,9 @@
 
         <!-- Loading scripts -->
         <script src="https://d3js.org/d3.v5.min.js"></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&display=swap" rel="stylesheet">
   
 
         <!-- Styling -->
@@ -12,7 +15,7 @@
             body {
                 background-color: #2C2D51;
                 color: white;
-                font-family: Verdana, Tahoma, sans-serif;
+                font-family: "Oswald"
             }
 
             .tooltip {
@@ -107,6 +110,13 @@
                 flex-direction: row;
                 justify-content: center;
             }
+
+            .page-title {
+                text-align: center;
+                font-family: "Oswald";
+                text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+
+            }
           
 
 
@@ -117,17 +127,29 @@
 
         <div class = "top">
             <div class="header">
-                <h1 class="page-title" style="font-size: 60px"> Olympics <br> Match-Up </h1>
-                <p>by Sydney Wan (ssw73)</p>
+                <h1 class="page-title" style="font-size: 80px"> OLYMPICS MATCH-UP </h1>
+                <h3 class="page-title">by Sydney Wan (ssw73)</h3>
             </div>
+        </div>
+        <p style="font-size: 30px; text-align: center">"The Olympic Games are the world's only truly global, multi-sport, celebratory athletics competition. <br>
+            With more than 200 countries participating in over 400 events across the Summer and Winter Games, <br>
+            the Olympics are where the world comes to compete, feel inspired, and be together."<br><br>
+
+            The Olympics are one of the few global events that bring participants and viewers alike together in friendly competition.<br>
+            As the Paris 2024 Olympic games approach, who will be the top contenders? 
+        
+        </p>
+        <div style="background-color: #6F6D95; width:100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 50px; padding-left:0">
+            <h3>Select your countries on the map to begin the match-up.</h3>
         </div>
 
         <div id="container">
             <div id="map-container">
-                <h3>Select your countries.</h3>
+                
+                
                 <p style="color:lightgray; margin-bottom: 0;">Medals earned overall</p>
+                <svg id="tooltip-select" height="90" width="300"></svg>  
                 <svg id="map-legend" height="50" width="400" style="margin-top: 0"></svg>    
-                <svg id="tooltip-select" height="100" width="300"></svg>  
                 <div id="country-container">
                     <svg id="map" height="600" width="900"></svg>    
                     <div id = "countries-selected">
@@ -140,11 +162,14 @@
                 </div>
             </div>
             <div id = "area-chart" style="visibility: hidden;">
-                <h3>Number of medals earned by year</h3>
-                <svg id="area-legend" height="100" width="500"></svg>
-                <p>[How to use] Click and drag the cursor on the chart to narrow the time range. 
-                    Double click the chart to revert back to the original version.
-                </p>
+                <div style="background-color: #6F6D95; width:100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 50px">
+                    <h3>Number of medals earned by year</h3>
+                    <svg id="area-legend" height="100" width="500"></svg>
+                    <p>[How to use] Click and drag the cursor on the chart to narrow the time range. 
+                        Double click the chart to revert back to the original version.
+                    </p>
+                </div>
+                
                 <div class = "filters" >
                     <select name="Season" id="season">
                         <option value="season-all">Season: All</option>
@@ -167,7 +192,14 @@
                 <svg id="area-chart-plot" height="600" width="1000"></svg>
             </div>
             <div id="bubbles" style="visibility: hidden;">
-                <h3 style="text-align:center">Medal Breakdown by Athlete</h3>
+                <div style="background-color: #6F6D95; width:100%; display: flex; flex-direction: column; align-items: center; margin-top: 50px; margin-bottom: 50px">
+                    <h3 style="text-align:center">Medal Breakdown by Athlete</h3>
+                    <p>[How to use] Click a bubble to see athletes who have earned a medal in that sport.
+                        Click an athlete to see their medal breakdown.
+                    </p>
+
+                </div>
+                
                 <div class="filters" >
                     <div id="bubble-season">
                         <button class="bubblef" id="summer" style="background-color: lightgray;
@@ -183,8 +215,9 @@
                 </div>
                 <div id="bubble-container">
                     <button class="previous" style="visibility: hidden;">&#9664;</button>
-                    <svg id="bubble-chart" height="600" width="1300"></svg>
-                    <svg id="athlete-info" height="250" width="400" style="background-color: white; visibility: hidden"></svg>
+                    <svg id="bubble-chart" height="600" width="1300" style="margin-left:250px"></svg>
+                    <svg id="athlete-info" height="250" width="400" 
+                    style="background-color:  #6F6D95; margin-top: 50px; margin-right: 10px; visibility: hidden;"></svg>
                 </div>
                 
             </div>
@@ -197,7 +230,7 @@
                 //load data
                 let countryData = await d3.json("countries.geo.json");
                 const olympicData = await d3.csv("athlete_events.csv", d3.autoType);
-                
+
                 //define basic variables
                 const svg = d3.select("#map");
                 const svg_countries = d3.select("#country-select");
@@ -516,6 +549,7 @@
                         obj.Sport == sport && obj.Season == bubble_season && obj.Sex=== bubble_sex;;
                     });
                     let filteredData = [...teamData];
+        
 
                     const athleteCounts = [];
                     filteredData.forEach( d => {
@@ -540,6 +574,7 @@
                             [`${medal}`]: 1,
                             total: 1,
                             team: d.Team
+
                         })
 
                         }
@@ -551,6 +586,7 @@
 
                 function toggleBubbleFilter() {
                     const selected = d3.select(this);
+                    svg_athlete.style("visibility", "hidden");
 
                     selected.style("background-color", "lightgray");                    
 
@@ -592,12 +628,16 @@
                     svg_athlete.append("text")
                                .attr("x", 10)
                                .attr("y", 40)
+                               .attr("dy", "0em")
                                .attr("font-weight", 600)
                                .attr("font-size", "20px")
-                               .text(athleteData.name);
+                               .attr("fill", "white")
+                               .text(athleteData.name)
+                               .call(wrap, 240);
                     svg_athlete.append("text")
                                .attr("x", 10)
                                .attr("y", 90)
+                               .attr("fill", "white")
                                .attr("font-weight", 400)
                                .attr("font-size", "18px")
                                .text(`Team: ${athleteData.team}`);
@@ -609,6 +649,7 @@
                                .attr("y", y_pos)
                                .attr("font-weight", 300)
                                .attr("font-size", "15px")
+                               .attr("fill", "white")
                                .text(`Gold: ${athleteData.Gold}`);
                         y_pos += 50;
                     }
@@ -616,6 +657,7 @@
                         svg_athlete.append("text")
                                .attr("x", 10)
                                .attr("y", y_pos)
+                               .attr("fill", "white")
                                .attr("font-weight", 300)
                                .attr("font-size", "15px")
                                .text(`Silver: ${athleteData.Silver}`);
@@ -625,6 +667,7 @@
                         svg_athlete.append("text")
                                .attr("x", 10)
                                .attr("y", y_pos)
+                               .attr("fill", "white")
                                .attr("font-weight", 300)
                                .attr("font-size", "15px")
                                .text(`Bronze: ${athleteData.Bronze}`);
@@ -639,7 +682,7 @@
 
                     if (countriesSelected.size < 2) { return; } //if not all countries are selected
 
-                    document.getElementById("area-chart-plot").scrollIntoView({behavior: "smooth"});
+                    document.getElementById("area-chart").scrollIntoView({behavior: "smooth"});
 
                     
 
@@ -794,6 +837,7 @@
 
                 }
 
+                //adapted from my HW3 bubble chart function
                 function createBubbleChart(svg, data, name, value, colorScale) {
                     svg_bubbles.html("");
                     if (name==="name") {
@@ -805,6 +849,11 @@
                     }
                     else {
                         d3.selectAll(".previous").style("visibility", "hidden");
+                    }
+
+                    var selectedCountriesSorted = Array.from(countriesSelected);
+                    if (athleteCounts.find(item => item.country === selectedCountriesSorted[0]).count < athleteCounts.find(item => item.country === selectedCountriesSorted[1]).count) {
+                        selectedCountriesSorted = selectedCountriesSorted.reverse();
                     }
 
                     const width = svg_bubbles.attr("width");
@@ -832,7 +881,7 @@
                             .attr("r", d => d.r)
                             .attr("fill", d => {
                                 if (name==="sport") return colorScale(d.data[value]);
-                                else if (d.data.team === Array.from(countriesSelected)[0]){
+                                else if (d.data.team === selectedCountriesSorted[0]){;
                                     return "#cce5df";
                                 }
                                 else {
@@ -846,7 +895,9 @@
                     bubbles.append("text")
                             .attr("dy", "-0.3em")
                             .style("text-anchor", "middle")
-                            .style("fill", "white")
+                            .style("fill", d=> {
+                                if (name==="name") return "gray";
+                                else return "white"; })
                             .style("font-weight", 600)
                             .style("font-size", d => d.r / 4)
                             .text(d => {
@@ -854,7 +905,7 @@
                                 else { return d.data[name];}
                             })
                             .attr("pointer-events", "none")
-                            .call(wrap, 20); //how do i call this on only the small bubbles?
+                            .call(wrap, 20); 
     
             }
 
@@ -867,7 +918,6 @@
                 }
                 else if (selectedBubble.attr("class") === "name") { 
                     const selectedName = selectedBubble._groups[0][0].__data__.data;
-                    console.log(selectedName);
                     displayAthleteInfo(selectedName);
 
 
@@ -892,21 +942,24 @@
                         word,
                         line = [],
                         lineNumber = 0,
-                        lineHeight = 1.1, // ems
+                        lineHeight = 1.2, // ems
                         y = text.attr("y"),
                         dy = parseFloat(text.attr("dy")),
                         tspan = text.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em");
                     while (word = words.pop()) {
-                        line.push(word);
+                    line.push(word);
+                    tspan.text(line.join(" "));
+                    if (tspan.node().getComputedTextLength() > width) 
+                    {
+                        line.pop();
                         tspan.text(line.join(" "));
-                        if (tspan.node().getComputedTextLength() > width) {
-                            line.pop();
-                            tspan.text(line.join(" "));
-                            line = [word];
-                            tspan = text.append("tspan").attr("x", 0).attr("y", y).attr("dy", ++lineNumber * lineHeight + dy + "em").text(word);
-                        }
+                        line = [word];
+                        tspan = text.append("tspan").attr("x", 0).attr("y", y).attr("dy", lineHeight + dy + "em").text(word);
+                        ++lineNumber;
                     }
-                })
+                    }
+                    text.attr("y", -(((lineNumber-1)/2)*lineHeight) + "em");
+                });
             };
 
             //filters for area chart
