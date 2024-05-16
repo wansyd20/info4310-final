@@ -184,6 +184,7 @@
                 <div id="bubble-container">
                     <button class="previous" style="visibility: hidden;">&#9664;</button>
                     <svg id="bubble-chart" height="600" width="1300"></svg>
+                    <svg id="athlete-info" height="250" width="400" style="background-color: white; visibility: hidden"></svg>
                 </div>
                 
             </div>
@@ -196,7 +197,7 @@
                 //load data
                 let countryData = await d3.json("countries.geo.json");
                 const olympicData = await d3.csv("athlete_events.csv", d3.autoType);
-
+                
                 //define basic variables
                 const svg = d3.select("#map");
                 const svg_countries = d3.select("#country-select");
@@ -221,6 +222,7 @@
                 
                 //variables for bubble chart
                 const svg_bubbles = d3.select("#bubble-chart");
+                const svg_athlete = d3.select("#athlete-info");
                 var bubble_season = "Summer";
                 var bubble_sex = "M";
 
@@ -584,6 +586,53 @@
 
                 }
 
+                function displayAthleteInfo(athleteData) {
+                    svg_athlete.html("");
+                    svg_athlete.style("visibility", "visible");
+                    svg_athlete.append("text")
+                               .attr("x", 10)
+                               .attr("y", 40)
+                               .attr("font-weight", 600)
+                               .attr("font-size", "20px")
+                               .text(athleteData.name);
+                    svg_athlete.append("text")
+                               .attr("x", 10)
+                               .attr("y", 90)
+                               .attr("font-weight", 400)
+                               .attr("font-size", "18px")
+                               .text(`Team: ${athleteData.team}`);
+
+                    var y_pos = 140;
+                    if (athleteData.hasOwnProperty("Gold")) {
+                        svg_athlete.append("text")
+                               .attr("x", 10)
+                               .attr("y", y_pos)
+                               .attr("font-weight", 300)
+                               .attr("font-size", "15px")
+                               .text(`Gold: ${athleteData.Gold}`);
+                        y_pos += 50;
+                    }
+                    if (athleteData.hasOwnProperty("Silver")) {
+                        svg_athlete.append("text")
+                               .attr("x", 10)
+                               .attr("y", y_pos)
+                               .attr("font-weight", 300)
+                               .attr("font-size", "15px")
+                               .text(`Silver: ${athleteData.Silver}`);
+                        y_pos += 50;
+                    }
+                    if (athleteData.hasOwnProperty("Bronze")) {
+                        svg_athlete.append("text")
+                               .attr("x", 10)
+                               .attr("y", y_pos)
+                               .attr("font-weight", 300)
+                               .attr("font-size", "15px")
+                               .text(`Bronze: ${athleteData.Bronze}`);
+                    }
+
+
+                }
+
                 function populateCharts(medalData) {
                     svg_area.html("");
                     areaLegend.html("");
@@ -749,7 +798,10 @@
                     svg_bubbles.html("");
                     if (name==="name") {
                         d3.selectAll(".previous").style("visibility", "visible")
-                          .on("click", d => prepBubbleChart(bubble_season, bubble_sex));
+                          .on("click", d => {
+                              prepBubbleChart(bubble_season, bubble_sex);
+                              svg_athlete.style("visibility", "hidden");
+                          });
                     }
                     else {
                         d3.selectAll(".previous").style("visibility", "hidden");
@@ -773,29 +825,7 @@
                     const bubbles = svg.append("g").selectAll()
                                                     .data(root.leaves())
                                                     .join("g")
-                                                    .attr("transform", d => `translate(${d.x},${d.y})`)
-                                                    // .on("mouseover", function () {
-                                                    //     d3.select(this)
-                                                    //         .transition()
-                                                    //         .duration(500)
-                                                    //         .ease(d3.easeLinear)
-                                                    //         .attr("transform", function (d) {
-                                                    //             return d3.select(this).attr("transform") + " scale(1.2)";
-                                                    //         }); // Scale up the circle by 20%
-                                                    // })
-                                                    // .on("mouseout", function () {
-                                                    //     d3.select(this)
-                                                    //         .transition()
-                                                    //         .duration(500)
-                                                    //         .ease(d3.easeLinear)
-                                                    //         .attr("transform", function (d) {
-                                                    //             return d3
-                                                    //                 .select(this)
-                                                    //                 .attr("transform")
-                                                    //                 .replace(/scale\([^)]*\)/, "");
-                                                    //         }); // Remove the scale transformation
-                                                    // });
-                    
+                                                    .attr("transform", d => `translate(${d.x},${d.y})`);                    
 
                     bubbles.append("circle")
                             .attr("class", name)
@@ -833,8 +863,13 @@
                 const selectedBubble = d3.select(this);
                 if (selectedBubble.attr("class") === "sport") {
                     const selectedSport = selectedBubble._groups[0][0].__data__.data.sport;
-
                     prepSecondBubbleChart(selectedSport);
+                }
+                else if (selectedBubble.attr("class") === "name") { 
+                    const selectedName = selectedBubble._groups[0][0].__data__.data;
+                    console.log(selectedName);
+                    displayAthleteInfo(selectedName);
+
 
                 }
             }
